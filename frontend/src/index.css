@@ -59,7 +59,7 @@
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.96 0.02 82);
   --secondary-foreground: oklch(0.28 0.03 45);
-  --muted: oklch(0.96 0.02 82);
+  --muted: oklch(96.061% 0.02033 81.739);
   --muted-foreground: oklch(0.52 0.03 55);
   --accent: oklch(0.965 0.025 78);
   --accent-foreground: oklch(0.28 0.03 45);
@@ -138,5 +138,10 @@
   }
   html {
     @apply font-sans;
+  }
+  #root,
+  html,
+  body {
+    height: 100%;
   }
 }
