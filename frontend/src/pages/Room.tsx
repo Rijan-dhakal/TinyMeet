@@ -1,14 +1,23 @@
 import { RoomContext } from "@/context/RoomContext";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
+import { useParams } from "react-router-dom";
 
 const Room = () => {
   const { socket } = useContext(RoomContext);
+  const { id } = useParams();
 
-  socket.emit("test-socket", { message: "Hello from client!" });
+  useEffect(() => {
+    socket.emit("join-room", id);
 
-  socket.on("test-socket-2", (data) => {
-    console.log(data.message);
-  });
+    socket.on("get-users", (users: string[]) => {
+      console.log("Users in the room:", users);
+    });
+
+    return () => {
+      socket.off("create-room");
+      socket.off("get-users");
+    };
+  }, [id]);
 
   return <div>Room</div>;
 };

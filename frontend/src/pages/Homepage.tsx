@@ -1,16 +1,36 @@
 import IconsInfo from "@/components/IconsInfo";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { MdVideoCall } from "react-icons/md";
 import { CiCloudOff } from "react-icons/ci";
 import { LuShieldCheck } from "react-icons/lu";
 import { MdNoAccounts } from "react-icons/md";
+import { RoomContext } from "@/context/RoomContext";
+import { useNavigate } from "react-router-dom";
 
 const Homepage = () => {
   const [meetingId, setMeetingId] = useState("");
+  const { socket } = useContext(RoomContext);
+  const navigate = useNavigate();
 
   const handleJoinMeeting = (meetingId: string) => {
     console.log("Joining meeting with ID:", meetingId);
+  };
+
+  useEffect(() => {
+    const handleRoomCreated = (roomId: string) => {
+      navigate(`/room/${roomId}`);
+    };
+
+    socket.on("room-created", handleRoomCreated);
+
+    return () => {
+      socket.off("room-created", handleRoomCreated);
+    };
+  }, [navigate, socket]);
+
+  const createRoom = () => {
+    socket.emit("create-room");
   };
 
   return (
@@ -30,7 +50,10 @@ const Homepage = () => {
 
       {/* Meeting Input */}
       <div className="flex justify-center mt-8 flex-col items-center gap-4">
-        <Button className="bg-blue-500 hover:bg-blue-600 text-white py-6 px-4 cursor-pointer rounded flex items-center md:px-12">
+        <Button
+          onClick={createRoom}
+          className="bg-blue-500 hover:bg-blue-600 text-white py-6 px-4 cursor-pointer rounded flex items-center md:px-12"
+        >
           <MdVideoCall className="mr-2 size-8" />
           <span className="text-xl">Create New Meeting</span>
         </Button>
