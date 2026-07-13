@@ -4,23 +4,34 @@ import { v4 as uuid } from "uuid";
 const rooms: { [key: string]: string[] } = {};
 
 export const roomHandler = (socket: Socket) => {
+  interface JoinRoomParams {
+    roomId: string;
+    peerId: string;
+  }
+
   const createRoom = () => {
     const roomId = uuid();
     socket.emit("room-created", roomId);
     rooms[roomId] = [];
-    console.log(`Room created with ID: ${roomId}`);
   };
 
-  const joinRoom = (roomId: string) => {
+  const joinRoom = ({ roomId, peerId }: JoinRoomParams) => {
     if (rooms[roomId]) {
+      rooms[roomId]?.push(peerId);
       socket.join(roomId);
-      rooms[roomId].push(socket.id);
-      console.log(`User joined room: ${roomId}`);
+
       socket.emit("get-users", rooms[roomId]);
+
       socket.on("disconnect", () => {
-        console.log(`User disconnected from room: ${roomId}`);
-        rooms[roomId] = rooms[roomId]?.filter((id) => id !== socket.id) || [];
+        leaveRoom(roomId, peerId);
       });
+    }
+  };
+
+  const leaveRoom = (roomId: string, peerId: string) => {
+    if (rooms[roomId]) {
+      rooms[roomId] = rooms[roomId]?.filter((id) => id !== peerId) || [];
+      socket.to(roomId).emit("user-disconnected", peerId);
     }
   };
 
