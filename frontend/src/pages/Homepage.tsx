@@ -14,7 +14,7 @@ const Homepage = () => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen px-10 py-3 bg-[url('/background-light.png')] dark:bg-[url('/background-dark.jpg')] bg-cover overflow-hidden">
       {/* Page Title */}
       <div className="flex flex-col items-center justify-center h-full">
         <h1 className="text-5xl font-bold text-center mt-10 text-black dark:text-white">
