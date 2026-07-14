@@ -15,6 +15,7 @@ const Homepage = () => {
 
   const handleJoinMeeting = (meetingId: string) => {
     console.log("Joining meeting with ID:", meetingId);
+    navigate(`/room/${meetingId}`);
   };
 
   useEffect(() => {
