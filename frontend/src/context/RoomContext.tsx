@@ -1,7 +1,7 @@
 import { createContext, type ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 
-const WS = "http://localhost:3001";
+const WS = import.meta.env.VITE_SOCKET_URL;
 
 const socket: Socket = io(WS);
 

@@ -4,6 +4,7 @@ import Homepage from "./pages/Homepage";
 import Room from "./pages/Room";
 import MainLayout from "./layout/MainLayout";
 import { Toaster } from "@/components/ui/sonner";
+import NotFound from "./pages/NotFound";
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Homepage />} />
             <Route path="/room/:id" element={<Room />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>
