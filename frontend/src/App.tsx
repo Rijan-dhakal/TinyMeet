@@ -3,6 +3,7 @@ import { ThemeProvider } from "./components/theme-provider";
 import Homepage from "./pages/Homepage";
 import Room from "./pages/Room";
 import MainLayout from "./layout/MainLayout";
+import { Toaster } from "@/components/ui/sonner";
 
 const App = () => {
   return (
@@ -15,6 +16,7 @@ const App = () => {
           </Route>
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" />
     </ThemeProvider>
   );
 };

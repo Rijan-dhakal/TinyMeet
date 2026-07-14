@@ -1,10 +1,12 @@
 import Peer from "peerjs";
 import { useContext, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuid } from "uuid";
 
 import VideoPlayer from "../components/VideoPlayer";
 import { RoomContext } from "../context/RoomContext";
+import { toast } from "sonner";
+import WaitingContainer from "@/components/WaitingContainer";
 
 const Room = () => {
   const { id } = useParams();
@@ -14,6 +16,8 @@ const Room = () => {
   const [remoteStream, setRemoteStream] = useState<MediaStream>();
 
   const localStreamRef = useRef<MediaStream | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const peer = new Peer(uuid());
@@ -54,6 +58,12 @@ const Room = () => {
       });
     });
 
+    socket.on("room-full", () => {
+      toast.error("The room is full.");
+      navigate("/");
+      return;
+    });
+
     socket.on("get-users", (peerIds: string[]) => {
       const [firstPeerId] = peerIds;
 
@@ -76,6 +86,8 @@ const Room = () => {
       });
     });
 
+    socket.on;
+
     return () => {
       peer.destroy();
 
@@ -83,16 +95,36 @@ const Room = () => {
 
       socket.off("get-users");
       socket.off("user-disconnected");
+      socket.off("room-full");
     };
   }, [id]);
 
   return (
-    <>
-      <div>
-        {stream && <VideoPlayer stream={stream} />}
-        {remoteStream && <VideoPlayer stream={remoteStream} />}
+    <div className="min-h-screen bg-slate-900 px-6 pt-16">
+      <div className="mx-auto grid max-w-max-w-7xl gap-6 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/10 relative">
+          <div className="absolute bg-gray-800/50 text-white py-1 px-3 top-3 left-3 rounded-lg text-sm">
+            You
+          </div>
+          {stream ? (
+            <VideoPlayer stream={stream} />
+          ) : (
+            <WaitingContainer text="Waiting for camera permission..." />
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/10 max-w-7xl relative">
+          <div className="absolute bg-gray-800/50 text-white py-1 px-3 top-3 left-3 rounded-lg text-sm">
+            Other
+          </div>
+          {remoteStream ? (
+            <VideoPlayer stream={remoteStream} />
+          ) : (
+            <WaitingContainer text="Waiting for another user..." />
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

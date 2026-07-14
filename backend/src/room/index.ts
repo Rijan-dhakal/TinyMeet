@@ -17,6 +17,14 @@ export const roomHandler = (socket: Socket) => {
 
   const joinRoom = ({ roomId, peerId }: JoinRoomParams) => {
     if (rooms[roomId]) {
+      const tempSet = new Set(rooms[roomId]);
+
+      rooms[roomId] = Array.from(tempSet);
+
+      if (rooms[roomId].length >= 2) {
+        socket.emit("room-full");
+        return;
+      }
       rooms[roomId]?.push(peerId);
       socket.join(roomId);
 
