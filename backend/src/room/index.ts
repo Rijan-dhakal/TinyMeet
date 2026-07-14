@@ -31,19 +31,70 @@ export const roomHandler = (socket: Socket) => {
       socket.emit("get-users", rooms[roomId]);
 
       socket.on("disconnect", () => {
-        leaveRoom(roomId, peerId);
+        leaveRoom({
+          roomId,
+          peerId,
+        });
       });
     }
   };
 
-  const leaveRoom = (roomId: string, peerId: string) => {
+  const leaveRoom = ({
+    roomId,
+    peerId,
+  }: {
+    roomId: string;
+    peerId: string;
+  }) => {
     if (rooms[roomId]) {
       rooms[roomId] = rooms[roomId]?.filter((id) => id !== peerId) || [];
       socket.to(roomId).emit("user-disconnected", peerId);
+
+      if (rooms[roomId].length === 0) {
+        delete rooms[roomId];
+      }
     }
   };
+
+  const toggleAudio = ({
+    roomId,
+    audioEnabled,
+  }: {
+    roomId: string;
+    audioEnabled: boolean;
+  }) => {
+    socket.to(roomId).emit("toggle-audio-status", audioEnabled);
+  };
+
+  const toggleCamera = ({
+    roomId,
+    cameraEnabled,
+  }: {
+    roomId: string;
+    cameraEnabled: boolean;
+  }) => {
+    console.log(12);
+    socket.to(roomId).emit("toggle-camera-status", cameraEnabled);
+  };
+
+  const leaveRoomHandler = ({
+    roomId,
+    peerId,
+  }: {
+    roomId: string;
+    peerId: string;
+  }) => {
+    leaveRoom({ roomId, peerId });
+    socket.to(roomId).emit("end-call", peerId);
+  };
+
+  socket.on("leave-room", leaveRoomHandler);
 
   socket.on("create-room", createRoom);
 
   socket.on("join-room", joinRoom);
+
+  socket.on("toggle-audio", toggleAudio);
+
+  socket.on("toggle-camera", toggleCamera);
 };

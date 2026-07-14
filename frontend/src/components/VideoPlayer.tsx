@@ -7,7 +7,7 @@ const VideoPlayer = ({ stream }: { stream: MediaStream }) => {
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }
-  });
+  }, [stream]);
 
   return (
     <video
@@ -15,8 +15,9 @@ const VideoPlayer = ({ stream }: { stream: MediaStream }) => {
       autoPlay
       playsInline
       controls={false}
-      className="w-full h-full object-cover rounded-lg"
+      className="h-full w-full rounded-lg object-cover"
     />
   );
 };
+
 export default VideoPlayer;
