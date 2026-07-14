@@ -1,5 +1,5 @@
 import type { Socket } from "socket.io";
-import { v4 as uuid } from "uuid";
+import { customAlphabet } from "nanoid";
 
 const rooms: { [key: string]: string[] } = {};
 
@@ -10,7 +10,12 @@ export const roomHandler = (socket: Socket) => {
   }
 
   const createRoom = () => {
-    const roomId = uuid();
+    const generateId = customAlphabet(
+      "abcdefghijklmnopqrstuvwxyz0123456789",
+      6,
+    );
+    const roomId = generateId();
+
     socket.emit("room-created", roomId);
     rooms[roomId] = [];
   };
