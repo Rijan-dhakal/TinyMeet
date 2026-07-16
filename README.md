@@ -1,6 +1,6 @@
 # TinyMeet
 
-TinyMeet is a simple peer-to-peer video calling application built with React, Express, Socket.IO, PeerJS, and WebRTC. It lets two users connect directly from their browsers for a video call without user accounts or a database.
+TinyMeet is a simple peer-to-peer video calling application built with React, Express, Socket.IO, Simple-peer, and WebRTC. It lets two users connect directly from their browsers for a video call without user accounts or a database.
 
 ## Live Demo
 
@@ -27,7 +27,7 @@ TinyMeet is a simple peer-to-peer video calling application built with React, Ex
 - React
 - TypeScript
 - Vite
-- PeerJS
+- Simple-peer
 - WebRTC
 - Socket.IO Client
 
@@ -43,6 +43,10 @@ TinyMeet is a simple peer-to-peer video calling application built with React, Ex
 - `backend/` - Socket.IO signaling server
 
 ## Getting Started
+
+### env
+
+- Copy contents of .env.sample to .env and enter details
 
 ### Frontend
 

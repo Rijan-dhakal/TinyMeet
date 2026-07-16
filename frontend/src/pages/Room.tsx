@@ -263,9 +263,11 @@ const Room = () => {
 
             {stream ? (
               cameraOn ? (
-                <VideoPlayer stream={stream} muted />
+                <VideoPlayer stream={stream} muted className="scale-x-[-1]" />
               ) : (
-                <CameraOff />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                  <CameraOff />
+                </div>
               )
             ) : (
               <WaitingContainer text="Waiting for camera permission..." />
