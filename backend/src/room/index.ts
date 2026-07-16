@@ -1,12 +1,11 @@
-import type { Socket } from "socket.io";
+import type { Server, Socket } from "socket.io";
 import { customAlphabet } from "nanoid";
 
 const rooms: { [key: string]: string[] } = {};
 
-export const roomHandler = (socket: Socket) => {
+export const roomHandler = (io: Server, socket: Socket) => {
   interface JoinRoomParams {
     roomId: string;
-    peerId: string;
   }
 
   const createRoom = () => {
@@ -20,28 +19,43 @@ export const roomHandler = (socket: Socket) => {
     rooms[roomId] = [];
   };
 
-  const joinRoom = ({ roomId, peerId }: JoinRoomParams) => {
-    if (rooms[roomId]) {
-      const tempSet = new Set(rooms[roomId]);
-
-      rooms[roomId] = Array.from(tempSet);
-
-      if (rooms[roomId].length >= 2) {
-        socket.emit("room-full");
-        return;
-      }
-      rooms[roomId]?.push(peerId);
-      socket.join(roomId);
-
-      socket.emit("get-users", rooms[roomId]);
-
-      socket.on("disconnect", () => {
-        leaveRoom({
-          roomId,
-          peerId,
-        });
-      });
+  const joinRoom = ({ roomId }: JoinRoomParams) => {
+    if (!rooms[roomId]) {
+      socket.emit("room-not-found");
+      return;
     }
+
+    const tempSet = new Set(rooms[roomId]);
+
+    rooms[roomId] = Array.from(tempSet);
+
+    if (rooms[roomId].includes(socket.id)) {
+      const existingUsers = rooms[roomId].filter((id) => id !== socket.id);
+
+      socket.emit("get-users", existingUsers);
+      return;
+    }
+
+    if (rooms[roomId].length >= 2) {
+      socket.emit("room-full");
+      return;
+    }
+
+    const existingUsers = [...rooms[roomId]];
+
+    rooms[roomId]?.push(socket.id);
+    socket.join(roomId);
+
+    socket.emit("get-users", existingUsers);
+
+    socket.to(roomId).emit("user-joined", socket.id);
+
+    socket.on("disconnect", () => {
+      leaveRoom({
+        roomId,
+        peerId: socket.id,
+      });
+    });
   };
 
   const leaveRoom = ({
@@ -50,15 +64,19 @@ export const roomHandler = (socket: Socket) => {
   }: {
     roomId: string;
     peerId: string;
-  }) => {
-    if (rooms[roomId]) {
-      rooms[roomId] = rooms[roomId]?.filter((id) => id !== peerId) || [];
-      socket.to(roomId).emit("user-disconnected", peerId);
-
-      if (rooms[roomId].length === 0) {
-        delete rooms[roomId];
-      }
+  }): boolean => {
+    if (!rooms[roomId] || !rooms[roomId].includes(peerId)) {
+      return false;
     }
+
+    rooms[roomId] = rooms[roomId].filter((id) => id !== peerId);
+    socket.to(roomId).emit("user-disconnected", peerId);
+
+    if (rooms[roomId].length === 0) {
+      delete rooms[roomId];
+    }
+
+    return true;
   };
 
   const toggleAudio = ({
@@ -78,19 +96,28 @@ export const roomHandler = (socket: Socket) => {
     roomId: string;
     cameraEnabled: boolean;
   }) => {
-    console.log(12);
     socket.to(roomId).emit("toggle-camera-status", cameraEnabled);
   };
 
-  const leaveRoomHandler = ({
-    roomId,
-    peerId,
+  const leaveRoomHandler = ({ roomId }: { roomId: string }) => {
+    const actuallyLeft = leaveRoom({ roomId, peerId: socket.id });
+
+    if (actuallyLeft) {
+      socket.to(roomId).emit("end-call", socket.id);
+    }
+  };
+
+  const sendSignal = ({
+    to,
+    signal,
   }: {
-    roomId: string;
-    peerId: string;
+    to: string;
+    signal: { type?: string };
   }) => {
-    leaveRoom({ roomId, peerId });
-    socket.to(roomId).emit("end-call", peerId);
+    io.to(to).emit("signal", {
+      from: socket.id,
+      signal,
+    });
   };
 
   socket.on("leave-room", leaveRoomHandler);
@@ -102,4 +129,6 @@ export const roomHandler = (socket: Socket) => {
   socket.on("toggle-audio", toggleAudio);
 
   socket.on("toggle-camera", toggleCamera);
+
+  socket.on("signal", sendSignal);
 };
