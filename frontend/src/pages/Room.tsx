@@ -1,7 +1,6 @@
-import Peer from "peerjs";
+import SimplePeer from "simple-peer";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { v4 as uuid } from "uuid";
 
 import VideoPlayer from "../components/VideoPlayer";
 import { RoomContext } from "../context/RoomContext";
@@ -27,7 +26,8 @@ const Room = () => {
   const [remoteCameraOn, setRemoteCameraOn] = useState(true);
 
   const localStreamRef = useRef<MediaStream | null>(null);
-  const peerIdRef = useRef<string>("");
+  const peerRef = useRef<SimplePeer.Instance | null>(null);
+  const remoteIdRef = useRef<string>("");
 
   const navigate = useNavigate();
 
@@ -72,24 +72,57 @@ const Room = () => {
   const endCall = () => {
     socket.emit("leave-room", {
       roomId: id,
-      peerId: peerIdRef.current,
     });
     navigate("/");
   };
 
   useEffect(() => {
-    const peer = new Peer(uuid());
+    if (!id) return;
 
-    const callPeer = (peerId: string) => {
+    const destroyPeer = () => {
+      peerRef.current?.destroy();
+      peerRef.current = null;
+      remoteIdRef.current = "";
+    };
+
+    const createPeer = (remoteId: string, initiator: boolean) => {
       const currentStream = localStreamRef.current;
 
-      if (!currentStream || peerId === peer.id) return;
+      if (!currentStream) {
+        return;
+      }
 
-      const call = peer.call(peerId, currentStream);
+      destroyPeer();
+      remoteIdRef.current = remoteId;
 
-      call.on("stream", (remoteStream) => {
+      const peer = new SimplePeer({
+        initiator,
+        trickle: true,
+        stream: currentStream,
+      });
+
+      peer.on("signal", (signal: SimplePeer.SignalData) => {
+        socket.emit("signal", {
+          to: remoteId,
+          signal,
+        });
+      });
+
+      peer.on("stream", (remoteStream: MediaStream) => {
         setRemoteStream(remoteStream);
       });
+
+      peer.on("close", () => {
+        destroyPeer();
+        setRemoteStream(undefined);
+      });
+
+      peer.on("error", () => {
+        destroyPeer();
+        setRemoteStream(undefined);
+      });
+
+      peerRef.current = peer;
     };
 
     navigator.mediaDevices
@@ -100,45 +133,73 @@ const Room = () => {
       .then((mediaStream) => {
         localStreamRef.current = mediaStream;
         setStream(mediaStream);
+
+        socket.emit("join-room", { roomId: id });
       })
       .catch((err) => {
         console.error("Failed to access media devices:", err);
-      });
 
-    peer.on("open", (peerId) => {
-      if (!id) return;
-      peerIdRef.current = peerId;
-
-      socket.emit("join-room", {
-        roomId: id,
-        peerId,
+        if (err instanceof DOMException && err.name === "NotReadableError") {
+          toast.error("Failed to get camera or microphone permission.");
+        } else if (
+          err instanceof DOMException &&
+          err.name === "NotAllowedError"
+        ) {
+          toast.error(
+            "Camera or microphone permission is not allowed. Allow it and reload.",
+          );
+        } else if (
+          err instanceof DOMException &&
+          err.name === "NotFoundError"
+        ) {
+          toast.error("No camera or microphone was found.");
+        } else {
+          toast.error("Could not access your camera or microphone.");
+        }
       });
-    });
 
     socket.on("room-full", () => {
       toast.error("The room is full.");
       navigate("/");
     });
 
-    socket.on("get-users", (peerIds: string[]) => {
-      const [firstPeerId] = peerIds;
+    socket.on("room-not-found", () => {
+      toast.error("Room not found.");
+      navigate("/");
+    });
 
-      if (firstPeerId) {
-        callPeer(firstPeerId);
+    socket.on("get-users", (existingUserIds: string[]) => {
+      console.log("get-users:", existingUserIds);
+
+      const [remoteId] = existingUserIds;
+
+      if (remoteId) {
+        createPeer(remoteId, true);
+      } else {
+        console.log("Waiting for another user");
       }
     });
 
-    peer.on("call", (call) => {
-      const currentStream = localStreamRef.current;
-
-      if (!currentStream) return;
-
-      call.answer(currentStream);
-
-      call.on("stream", (remoteStream) => {
-        setRemoteStream(remoteStream);
-      });
+    socket.on("user-joined", (remoteId: string) => {
+      createPeer(remoteId, false);
     });
+
+    socket.on(
+      "signal",
+      ({ from, signal }: { from: string; signal: SimplePeer.SignalData }) => {
+        const peer = peerRef.current;
+
+        if (!peer || peer.destroyed || from !== remoteIdRef.current) {
+          return;
+        }
+
+        try {
+          peer.signal(signal);
+        } catch (err) {
+          console.error("Signal error:", err);
+        }
+      },
+    );
 
     socket.on("toggle-audio-status", (audioEnabled: boolean) => {
       setRemoteMicOn(audioEnabled);
@@ -146,22 +207,32 @@ const Room = () => {
 
     socket.on("toggle-camera-status", (cameraEnabled: boolean) => {
       setRemoteCameraOn(cameraEnabled);
-      console.log("Remote camera status changed:", cameraEnabled);
     });
 
-    socket.on("user-disconnected", () => {
-      setRemoteStream(undefined);
+    socket.on("user-disconnected", (remoteId: string) => {
+      console.log("user-disconnected:", remoteId);
+
+      if (remoteId === remoteIdRef.current) {
+        destroyPeer();
+        setRemoteStream(undefined);
+      }
     });
 
     return () => {
-      peer.destroy();
+      socket.emit("leave-room", { roomId: id });
+
+      destroyPeer();
 
       localStreamRef.current?.getTracks().forEach((track) => {
         track.stop();
       });
+      localStreamRef.current = null;
 
       socket.off("get-users");
+      socket.off("user-joined");
+      socket.off("signal");
       socket.off("room-full");
+      socket.off("room-not-found");
       socket.off("toggle-audio-status");
       socket.off("toggle-camera-status");
       socket.off("user-disconnected");
@@ -192,7 +263,7 @@ const Room = () => {
 
             {stream ? (
               cameraOn ? (
-                <VideoPlayer stream={stream} />
+                <VideoPlayer stream={stream} muted />
               ) : (
                 <CameraOff />
               )
@@ -216,7 +287,12 @@ const Room = () => {
               remoteCameraOn ? (
                 <VideoPlayer stream={remoteStream} />
               ) : (
-                <CameraOff />
+                <div>
+                  <VideoPlayer stream={remoteStream} />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                    <CameraOff />
+                  </div>
+                </div>
               )
             ) : (
               <WaitingContainer text="Waiting for another user..." />

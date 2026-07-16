@@ -19,7 +19,7 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("user connected");
 
-  roomHandler(socket);
+  roomHandler(io, socket);
 
   socket.on("disconnect", () => {
     console.log("user disconnected");
